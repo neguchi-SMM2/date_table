@@ -144,6 +144,7 @@
             border-radius: 15px;
             border-left: 4px solid #667eea;
             transition: all 0.3s ease;
+            position: relative;
         }
 
         .milestone-item:hover {
@@ -156,6 +157,34 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
+        }
+
+        .milestone-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .move-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .move-btn:hover {
+            background: #5a6268;
+            transform: scale(1.05);
+        }
+
+        .move-btn:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .milestone-label {
@@ -336,6 +365,11 @@
                 align-items: flex-start;
                 gap: 10px;
             }
+
+            .milestone-controls {
+                flex-wrap: wrap;
+                justify-content: flex-start;
+            }
         }
     </style>
 </head>
@@ -388,15 +422,15 @@
                     </select>
                 </div>
                 <div class="input-field" id="dateInput">
-                    <label for="milestoneDate">日付:</label>
-                    <input type="date" id="milestoneDate">
+                    <label for="milestoneDate">日付 (今年):</label>
+                    <input type="text" id="milestoneDate" placeholder="MM/DD (例: 10/10)">
                 </div>
                 <div class="input-field" id="percentInput" style="display: none;">
                     <label for="milestonePercent">パーセント:</label>
                     <input type="number" id="milestonePercent" min="0" max="100" step="0.1">
                 </div>
                 <div class="input-field">
-                    <label for="milestoneLabel">ラベル:</label>
+                    <label for="milestoneLabel">ラベル (空欄で自動命名):</label>
                     <input type="text" id="milestoneLabel" placeholder="例: 夏休み開始、プロジェクト締切">
                 </div>
             </div>
@@ -406,27 +440,58 @@
 
     <script>
         let customMilestones = [];
+        let milestoneOrder = [];
         let currentYear = new Date().getFullYear();
 
+        // デフォルトのパーセンテージマイルストーン
         const defaultPercentMilestones = [10, 20, 30, 40, 50, 60, 70, 80, 90];
 
-        function loadCustomMilestones() {
-            const saved = localStorage.getItem('customMilestones');
-            if (saved) {
+        // 初期化時にマイルストーンの順序を設定
+        function initializeMilestoneOrder() {
+            milestoneOrder = [];
+            // デフォルトマイルストーンを追加
+            defaultPercentMilestones.forEach(percent => {
+                milestoneOrder.push({ type: 'default', id: `default_${percent}` });
+            });
+            // カスタムマイルストーンを追加
+            customMilestones.forEach((milestone, index) => {
+                milestoneOrder.push({ type: 'custom', id: index });
+            });
+        }
+
+        // ローカルストレージからデータを読み込み
+        function loadData() {
+            const savedMilestones = localStorage.getItem('customMilestones');
+            const savedOrder = localStorage.getItem('milestoneOrder');
+            
+            if (savedMilestones) {
                 try {
-                    customMilestones = JSON.parse(saved);
+                    customMilestones = JSON.parse(savedMilestones);
                 } catch (e) {
                     console.error('カスタムマイルストーンの読み込みに失敗しました:', e);
                     customMilestones = [];
                 }
             }
+            
+            if (savedOrder) {
+                try {
+                    milestoneOrder = JSON.parse(savedOrder);
+                } catch (e) {
+                    console.error('マイルストーン順序の読み込みに失敗しました:', e);
+                    initializeMilestoneOrder();
+                }
+            } else {
+                initializeMilestoneOrder();
+            }
         }
 
-        function saveCustomMilestones() {
+        // ローカルストレージにデータを保存
+        function saveData() {
             try {
                 localStorage.setItem('customMilestones', JSON.stringify(customMilestones));
+                localStorage.setItem('milestoneOrder', JSON.stringify(milestoneOrder));
             } catch (e) {
-                console.error('カスタムマイルストーンの保存に失敗しました:', e);
+                console.error('データの保存に失敗しました:', e);
             }
         }
 
@@ -463,7 +528,9 @@
             const currentPercent = (elapsedMs / totalMs) * 100;
 
             if (milestone.type === 'date') {
-                const targetDate = new Date(milestone.value);
+                // MM/DD形式を今年の日付に変換
+                const dateParts = milestone.value.split('/');
+                const targetDate = new Date(currentYear, parseInt(dateParts[0]) - 1, parseInt(dateParts[1]));
                 const daysToTarget = (targetDate - now) / (1000 * 60 * 60 * 24);
                 const targetPercent = ((targetDate - yearStart) / totalMs) * 100;
                 
@@ -497,73 +564,59 @@
             const elapsedMs = now - yearStart;
             const currentPercent = (elapsedMs / totalMs) * 100;
 
-            defaultPercentMilestones.forEach(percent => {
-                const milestone = { type: 'percent', value: percent, label: `${percent}%` };
-                const calc = calculateMilestone(milestone);
-                
-                const item = document.createElement('div');
-                item.className = 'milestone-item';
-                if (calc.isPast) {
-                    item.style.opacity = '0.8';
-                    item.style.background = 'linear-gradient(90deg, #d4edda, #c3e6cb)';
-                }
-                
-                let progressPercent = 0;
-                if (calc.isPast) {
-                    progressPercent = 100;
-                } else {
-                    progressPercent = Math.max(0, (currentPercent / percent) * 100);
-                }
-                
-                item.innerHTML = `
-                    <div class="milestone-header">
-                        <div class="milestone-label">${milestone.label}</div>
-                        <div class="milestone-value">
-                            ${calc.isPast ? '✅ 完了' : `あと${calc.daysToTarget}日 (${calc.percentToTarget}%)`}
-                        </div>
-                    </div>
-                    <div class="milestone-progress">
-                        <div class="milestone-progress-fill ${calc.isPast ? 'completed' : 'pending'}" style="width: ${progressPercent}%">
-                            <div class="milestone-progress-text">${progressPercent.toFixed(1)}%</div>
-                        </div>
-                    </div>
-                `;
-                
-                milestoneList.appendChild(item);
-            });
+            milestoneOrder.forEach((orderItem, orderIndex) => {
+                let milestone, calc, progressPercent, targetPercent;
+                let isCustom = orderItem.type === 'custom';
+                let actualIndex = orderItem.id;
 
-            customMilestones.forEach((milestone, index) => {
-                const calc = calculateMilestone(milestone);
-                
-                const item = document.createElement('div');
-                item.className = 'milestone-item custom-milestone';
-                if (calc.isPast) {
-                    item.style.opacity = '0.8';
-                    item.style.background = 'linear-gradient(90deg, #d4edda, #c3e6cb)';
+                if (isCustom) {
+                    if (actualIndex >= customMilestones.length) return;
+                    milestone = customMilestones[actualIndex];
+                    calc = calculateMilestone(milestone);
+                } else {
+                    const percent = parseInt(orderItem.id.replace('default_', ''));
+                    milestone = { type: 'percent', value: percent, label: `${percent}%` };
+                    calc = calculateMilestone(milestone);
                 }
-                
-                let progressPercent = 0;
-                let targetPercent = 0;
-                
+
+                // 進捗バーの計算
                 if (milestone.type === 'date') {
-                    const targetDate = new Date(milestone.value);
+                    const targetDate = new Date(currentYear, 
+                        parseInt(milestone.value.split('/')[0]) - 1, 
+                        parseInt(milestone.value.split('/')[1]));
                     targetPercent = ((targetDate - yearStart) / totalMs) * 100;
                 } else {
                     targetPercent = milestone.value;
                 }
-                
+
                 if (calc.isPast) {
                     progressPercent = 100;
                 } else {
                     progressPercent = Math.max(0, (currentPercent / targetPercent) * 100);
                 }
+
+                const item = document.createElement('div');
+                item.className = 'milestone-item';
+                if (isCustom) item.classList.add('custom-milestone');
+                
+                if (calc.isPast) {
+                    item.style.opacity = '0.8';
+                    item.style.background = 'linear-gradient(90deg, #d4edda, #c3e6cb)';
+                }
+
+                const moveUpDisabled = orderIndex === 0;
+                const moveDownDisabled = orderIndex === milestoneOrder.length - 1;
                 
                 item.innerHTML = `
                     <div class="milestone-header">
                         <div class="milestone-label">${milestone.label}</div>
-                        <div class="milestone-value">
-                            ${calc.isPast ? '✅ 完了' : `あと${calc.daysToTarget}日 (${calc.percentToTarget}%)`}
-                            <button class="delete-btn" onclick="removeCustomMilestone(${index})" style="margin-left: 10px;">削除</button>
+                        <div class="milestone-controls">
+                            <button class="move-btn" onclick="moveMilestone(${orderIndex}, 'up')" ${moveUpDisabled ? 'disabled' : ''}>↑</button>
+                            <button class="move-btn" onclick="moveMilestone(${orderIndex}, 'down')" ${moveDownDisabled ? 'disabled' : ''}>↓</button>
+                            <div class="milestone-value">
+                                ${calc.isPast ? '✅ 完了' : `あと${calc.daysToTarget}日 (${calc.percentToTarget}%)`}
+                            </div>
+                            ${isCustom ? `<button class="delete-btn" onclick="removeCustomMilestone(${actualIndex})" style="margin-left: 10px;">削除</button>` : ''}
                         </div>
                     </div>
                     <div class="milestone-progress">
@@ -577,23 +630,55 @@
             });
         }
 
+        function moveMilestone(index, direction) {
+            if (direction === 'up' && index > 0) {
+                [milestoneOrder[index], milestoneOrder[index - 1]] = [milestoneOrder[index - 1], milestoneOrder[index]];
+            } else if (direction === 'down' && index < milestoneOrder.length - 1) {
+                [milestoneOrder[index], milestoneOrder[index + 1]] = [milestoneOrder[index + 1], milestoneOrder[index]];
+            }
+            saveData();
+            updateMilestones();
+        }
+
         function addCustomMilestone() {
             const type = document.getElementById('milestoneType').value;
-            const label = document.getElementById('milestoneLabel').value;
-            
-            if (!label.trim()) {
-                alert('ラベルを入力してください');
-                return;
-            }
+            let label = document.getElementById('milestoneLabel').value.trim();
 
             let value;
             if (type === 'date') {
-                const dateValue = document.getElementById('milestoneDate').value;
+                const dateValue = document.getElementById('milestoneDate').value.trim();
                 if (!dateValue) {
-                    alert('日付を入力してください');
+                    alert('日付を入力してください (例: 10/10)');
                     return;
                 }
+                
+                // MM/DD形式の検証
+                const datePattern = /^(\d{1,2})\/(\d{1,2})$/;
+                const match = dateValue.match(datePattern);
+                if (!match) {
+                    alert('正しい形式で入力してください (MM/DD)');
+                    return;
+                }
+                
+                const month = parseInt(match[1]);
+                const day = parseInt(match[2]);
+                
+                if (month < 1 || month > 12) {
+                    alert('月は1-12の範囲で入力してください');
+                    return;
+                }
+                
+                if (day < 1 || day > 31) {
+                    alert('日は1-31の範囲で入力してください');
+                    return;
+                }
+                
                 value = dateValue;
+                
+                // ラベルが空の場合、自動で日付を設定
+                if (!label) {
+                    label = `${month}月${day}日`;
+                }
             } else {
                 const percentValue = document.getElementById('milestonePercent').value;
                 if (!percentValue || percentValue < 0 || percentValue > 100) {
@@ -601,16 +686,28 @@
                     return;
                 }
                 value = parseFloat(percentValue);
+                
+                // ラベルが空の場合、自動でパーセンテージを設定
+                if (!label) {
+                    label = `${value}%`;
+                }
             }
 
-            customMilestones.push({
+            const newMilestone = {
                 type: type,
                 value: value,
-                label: label.trim()
-            });
+                label: label
+            };
 
-            saveCustomMilestones();
+            customMilestones.push(newMilestone);
+            
+            // マイルストーン順序に追加
+            milestoneOrder.push({ type: 'custom', id: customMilestones.length - 1 });
 
+            // ローカルストレージに保存
+            saveData();
+
+            // フォームをリセット
             document.getElementById('milestoneDate').value = '';
             document.getElementById('milestonePercent').value = '';
             document.getElementById('milestoneLabel').value = '';
@@ -619,11 +716,24 @@
         }
 
         function removeCustomMilestone(index) {
+            // マイルストーン順序からも削除
+            milestoneOrder = milestoneOrder.filter(item => 
+                !(item.type === 'custom' && item.id === index)
+            );
+            
+            // より大きなインデックスを持つカスタムマイルストーンのIDを調整
+            milestoneOrder.forEach(item => {
+                if (item.type === 'custom' && item.id > index) {
+                    item.id--;
+                }
+            });
+            
             customMilestones.splice(index, 1);
-            saveCustomMilestones(); 
+            saveData();
             updateMilestones();
         }
 
+        // マイルストーン種類の切り替え
         document.getElementById('milestoneType').addEventListener('change', function() {
             const dateInput = document.getElementById('dateInput');
             const percentInput = document.getElementById('percentInput');
@@ -637,17 +747,20 @@
             }
         });
 
+        // 初期化と定期更新
         function init() {
-            loadCustomMilestones(); 
+            loadData(); // ローカルストレージから読み込み
             updateCurrentStatus();
             updateMilestones();
         }
 
+        // 1秒ごとに更新
         setInterval(() => {
             updateCurrentStatus();
             updateMilestones();
         }, 1000);
 
+        // 初期化
         init();
     </script>
 </body>
