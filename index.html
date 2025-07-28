@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>年間進捗情報早見表</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 700;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .current-status {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .status-item {
+            text-align: center;
+            padding: 10px;
+        }
+
+        .status-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .status-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .progress-container {
+            margin-top: 20px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            border-radius: 15px;
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .milestones {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .milestones h2 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .milestone-item {
+            padding: 20px;
+            margin-bottom: 15px;
+            background: linear-gradient(90deg, #f8f9fa, #e9ecef);
+            border-radius: 15px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .milestone-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .milestone-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .milestone-label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 1.1em;
+        }
+
+        .milestone-value {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .milestone-progress {
+            width: 100%;
+            height: 20px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            margin-top: 10px;
+        }
+
+        .milestone-progress-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        .milestone-progress-fill.completed {
+            background: linear-gradient(90deg, #28a745, #20c997);
+        }
+
+        .milestone-progress-fill.pending {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .milestone-progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.8em;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .add-milestone {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .add-milestone h2 {
+            color: #4a5568;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .input-field {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .input-field label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .input-field input, .input-field select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-field input:focus, .input-field select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff4757, #ff3742);
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
+        }
+
+        .delete-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .delete-btn:hover {
+            background: #ff3742;
+            transform: scale(1.05);
+        }
+
+        .custom-milestone {
+            border-left-color: #28a745 !important;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .status-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+            }
+
+            .status-value {
+                font-size: 1.5em;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            .input-field {
+                min-width: auto;
+            }
+
+            .milestone-item {
+                flex-direction: column;
+                text-align: left;
+                gap: 10px;
+            }
+
+            .milestone-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📅 年間進捗情報早見表</h1>
+        
+        <div class="current-status">
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-value" id="currentPercent">0%</div>
+                    <div class="status-label">今年の経過</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value" id="daysLeft">0</div>
+                    <div class="status-label">来年まで残り日数</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value" id="percentLeft">0%</div>
+                    <div class="status-label">来年まで残り％</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value" id="currentDate">-</div>
+                    <div class="status-label">現在日時</div>
+                </div>
+            </div>
+            
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill">
+                        <div class="progress-text" id="progressText">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="milestones">
+            <h2>📊 マイルストーン一覧</h2>
+            <div id="milestoneList"></div>
+        </div>
+
+        <div class="add-milestone">
+            <h2>➕ カスタムマイルストーン追加</h2>
+            <div class="input-group">
+                <div class="input-field">
+                    <label for="milestoneType">種類:</label>
+                    <select id="milestoneType">
+                        <option value="date">特定の日付</option>
+                        <option value="percent">パーセンテージ</option>
+                    </select>
+                </div>
+                <div class="input-field" id="dateInput">
+                    <label for="milestoneDate">日付:</label>
+                    <input type="date" id="milestoneDate">
+                </div>
+                <div class="input-field" id="percentInput" style="display: none;">
+                    <label for="milestonePercent">パーセント:</label>
+                    <input type="number" id="milestonePercent" min="0" max="100" step="0.1">
+                </div>
+                <div class="input-field">
+                    <label for="milestoneLabel">ラベル:</label>
+                    <input type="text" id="milestoneLabel" placeholder="例: 夏休み開始、プロジェクト締切">
+                </div>
+            </div>
+            <button class="btn" onclick="addCustomMilestone()">追加</button>
+        </div>
+    </div>
+
+    <script>
+        let customMilestones = [];
+        let currentYear = new Date().getFullYear();
+
+        const defaultPercentMilestones = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+
+        function loadCustomMilestones() {
+            const saved = localStorage.getItem('customMilestones');
+            if (saved) {
+                try {
+                    customMilestones = JSON.parse(saved);
+                } catch (e) {
+                    console.error('カスタムマイルストーンの読み込みに失敗しました:', e);
+                    customMilestones = [];
+                }
+            }
+        }
+
+        function saveCustomMilestones() {
+            try {
+                localStorage.setItem('customMilestones', JSON.stringify(customMilestones));
+            } catch (e) {
+                console.error('カスタムマイルストーンの保存に失敗しました:', e);
+            }
+        }
+
+        function updateCurrentStatus() {
+            const now = new Date();
+            const yearStart = new Date(currentYear, 0, 1);
+            const yearEnd = new Date(currentYear + 1, 0, 1);
+            
+            const totalMs = yearEnd - yearStart;
+            const elapsedMs = now - yearStart;
+            const remainingMs = yearEnd - now;
+            
+            const percentComplete = (elapsedMs / totalMs) * 100;
+            const percentRemaining = 100 - percentComplete;
+            const daysLeft = remainingMs / (1000 * 60 * 60 * 24);
+            
+            document.getElementById('currentPercent').textContent = percentComplete.toFixed(2) + '%';
+            document.getElementById('daysLeft').textContent = daysLeft.toFixed(2) + '日';
+            document.getElementById('percentLeft').textContent = percentRemaining.toFixed(2) + '%';
+            document.getElementById('currentDate').textContent = now.toLocaleString('ja-JP');
+            
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            progressFill.style.width = percentComplete + '%';
+            progressText.textContent = percentComplete.toFixed(1) + '%';
+        }
+
+        function calculateMilestone(milestone) {
+            const now = new Date();
+            const yearStart = new Date(currentYear, 0, 1);
+            const yearEnd = new Date(currentYear + 1, 0, 1);
+            const totalMs = yearEnd - yearStart;
+            const elapsedMs = now - yearStart;
+            const currentPercent = (elapsedMs / totalMs) * 100;
+
+            if (milestone.type === 'date') {
+                const targetDate = new Date(milestone.value);
+                const daysToTarget = (targetDate - now) / (1000 * 60 * 60 * 24);
+                const targetPercent = ((targetDate - yearStart) / totalMs) * 100;
+                
+                return {
+                    daysToTarget: daysToTarget.toFixed(2),
+                    percentToTarget: (targetPercent - currentPercent).toFixed(2),
+                    isPast: daysToTarget < 0
+                };
+            } else {
+                const targetPercent = milestone.value;
+                const targetMs = (targetPercent / 100) * totalMs;
+                const targetDate = new Date(yearStart.getTime() + targetMs);
+                const daysToTarget = (targetDate - now) / (1000 * 60 * 60 * 24);
+                
+                return {
+                    daysToTarget: daysToTarget.toFixed(2),
+                    percentToTarget: (targetPercent - currentPercent).toFixed(2),
+                    isPast: targetPercent < currentPercent
+                };
+            }
+        }
+
+        function updateMilestones() {
+            const milestoneList = document.getElementById('milestoneList');
+            milestoneList.innerHTML = '';
+
+            const now = new Date();
+            const yearStart = new Date(currentYear, 0, 1);
+            const yearEnd = new Date(currentYear + 1, 0, 1);
+            const totalMs = yearEnd - yearStart;
+            const elapsedMs = now - yearStart;
+            const currentPercent = (elapsedMs / totalMs) * 100;
+
+            defaultPercentMilestones.forEach(percent => {
+                const milestone = { type: 'percent', value: percent, label: `${percent}%` };
+                const calc = calculateMilestone(milestone);
+                
+                const item = document.createElement('div');
+                item.className = 'milestone-item';
+                if (calc.isPast) {
+                    item.style.opacity = '0.8';
+                    item.style.background = 'linear-gradient(90deg, #d4edda, #c3e6cb)';
+                }
+                
+                let progressPercent = 0;
+                if (calc.isPast) {
+                    progressPercent = 100;
+                } else {
+                    progressPercent = Math.max(0, (currentPercent / percent) * 100);
+                }
+                
+                item.innerHTML = `
+                    <div class="milestone-header">
+                        <div class="milestone-label">${milestone.label}</div>
+                        <div class="milestone-value">
+                            ${calc.isPast ? '✅ 完了' : `あと${calc.daysToTarget}日 (${calc.percentToTarget}%)`}
+                        </div>
+                    </div>
+                    <div class="milestone-progress">
+                        <div class="milestone-progress-fill ${calc.isPast ? 'completed' : 'pending'}" style="width: ${progressPercent}%">
+                            <div class="milestone-progress-text">${progressPercent.toFixed(1)}%</div>
+                        </div>
+                    </div>
+                `;
+                
+                milestoneList.appendChild(item);
+            });
+
+            customMilestones.forEach((milestone, index) => {
+                const calc = calculateMilestone(milestone);
+                
+                const item = document.createElement('div');
+                item.className = 'milestone-item custom-milestone';
+                if (calc.isPast) {
+                    item.style.opacity = '0.8';
+                    item.style.background = 'linear-gradient(90deg, #d4edda, #c3e6cb)';
+                }
+                
+                let progressPercent = 0;
+                let targetPercent = 0;
+                
+                if (milestone.type === 'date') {
+                    const targetDate = new Date(milestone.value);
+                    targetPercent = ((targetDate - yearStart) / totalMs) * 100;
+                } else {
+                    targetPercent = milestone.value;
+                }
+                
+                if (calc.isPast) {
+                    progressPercent = 100;
+                } else {
+                    progressPercent = Math.max(0, (currentPercent / targetPercent) * 100);
+                }
+                
+                item.innerHTML = `
+                    <div class="milestone-header">
+                        <div class="milestone-label">${milestone.label}</div>
+                        <div class="milestone-value">
+                            ${calc.isPast ? '✅ 完了' : `あと${calc.daysToTarget}日 (${calc.percentToTarget}%)`}
+                            <button class="delete-btn" onclick="removeCustomMilestone(${index})" style="margin-left: 10px;">削除</button>
+                        </div>
+                    </div>
+                    <div class="milestone-progress">
+                        <div class="milestone-progress-fill ${calc.isPast ? 'completed' : 'pending'}" style="width: ${progressPercent}%">
+                            <div class="milestone-progress-text">${progressPercent.toFixed(1)}%</div>
+                        </div>
+                    </div>
+                `;
+                
+                milestoneList.appendChild(item);
+            });
+        }
+
+        function addCustomMilestone() {
+            const type = document.getElementById('milestoneType').value;
+            const label = document.getElementById('milestoneLabel').value;
+            
+            if (!label.trim()) {
+                alert('ラベルを入力してください');
+                return;
+            }
+
+            let value;
+            if (type === 'date') {
+                const dateValue = document.getElementById('milestoneDate').value;
+                if (!dateValue) {
+                    alert('日付を入力してください');
+                    return;
+                }
+                value = dateValue;
+            } else {
+                const percentValue = document.getElementById('milestonePercent').value;
+                if (!percentValue || percentValue < 0 || percentValue > 100) {
+                    alert('0-100の範囲でパーセンテージを入力してください');
+                    return;
+                }
+                value = parseFloat(percentValue);
+            }
+
+            customMilestones.push({
+                type: type,
+                value: value,
+                label: label.trim()
+            });
+
+            saveCustomMilestones();
+
+            document.getElementById('milestoneDate').value = '';
+            document.getElementById('milestonePercent').value = '';
+            document.getElementById('milestoneLabel').value = '';
+
+            updateMilestones();
+        }
+
+        function removeCustomMilestone(index) {
+            customMilestones.splice(index, 1);
+            saveCustomMilestones(); 
+            updateMilestones();
+        }
+
+        document.getElementById('milestoneType').addEventListener('change', function() {
+            const dateInput = document.getElementById('dateInput');
+            const percentInput = document.getElementById('percentInput');
+            
+            if (this.value === 'date') {
+                dateInput.style.display = 'block';
+                percentInput.style.display = 'none';
+            } else {
+                dateInput.style.display = 'none';
+                percentInput.style.display = 'block';
+            }
+        });
+
+        function init() {
+            loadCustomMilestones(); 
+            updateCurrentStatus();
+            updateMilestones();
+        }
+
+        setInterval(() => {
+            updateCurrentStatus();
+            updateMilestones();
+        }, 1000);
+
+        init();
+    </script>
+</body>
+</html>
